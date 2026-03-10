@@ -79,7 +79,7 @@ function bulkPutKeyVal(db, storeName, items) {
 
 // --- MAIN WORKER LOGIC ---
 self.onmessage = async (e) => {
-    const { file } = e.data;
+    const { file, defaultSettings, defaultModel } = e.data;
     const isZip = file.name.endsWith('.zip');
     let db;
 
@@ -172,6 +172,14 @@ self.onmessage = async (e) => {
                     session.createdAt = new Date(session.createdAt);
                     session.lastUpdatedAt = new Date(session.lastUpdatedAt);
 
+                    // Hydrate missing settings/model
+                    if (!session.settings && defaultSettings) {
+                        session.settings = defaultSettings;
+                    }
+                    if (!session.model && defaultModel) {
+                        session.model = defaultModel;
+                    }
+
                     // Process Messages
                     if (session.messages) {
                         for (const msg of session.messages) {
@@ -246,7 +254,7 @@ export class ImportWorkerService {
         return this.worker;
     }
 
-    public runImport(file: File, onProgress: (percent: number, msg: string) => void): Promise<number | any> {
+    public runImport(file: File, onProgress: (percent: number, msg: string) => void, options?: { defaultSettings?: any, defaultModel?: string }): Promise<number | any> {
         return new Promise((resolve, reject) => {
             const worker = this.getWorker();
             
@@ -274,7 +282,7 @@ export class ImportWorkerService {
             };
 
             worker.addEventListener('message', handleMessage);
-            worker.postMessage({ file });
+            worker.postMessage({ file, ...options });
         });
     }
 

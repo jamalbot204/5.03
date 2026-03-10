@@ -94,7 +94,7 @@ const Sidebar: React.FC = memo(() => {
       currentChatId: state.currentChatId,
       selectChat: state.selectChat,
       isCharacterModeActive: state.currentChatSession?.isCharacterModeActive ?? false,
-      showAdvancedDataTools: state.currentChatSession?.settings.showAdvancedDataTools ?? false
+      showAdvancedDataTools: state.currentChatSession?.settings?.showAdvancedDataTools ?? false
   })));
   const { 
     chatHistory, 

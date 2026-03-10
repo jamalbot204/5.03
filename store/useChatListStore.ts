@@ -281,7 +281,7 @@ export const useChatListStore = create<ChatListState>((set, get) => ({
     });
 
     // 3. Update Settings to point to new Anchor ID (if applicable)
-    const newSettings = { ...originalSession.settings };
+    const newSettings = { ...(originalSession.settings || DEFAULT_SETTINGS) };
     if (newSettings.activeMemoryAnchorId && idMap.has(newSettings.activeMemoryAnchorId)) {
         newSettings.activeMemoryAnchorId = idMap.get(newSettings.activeMemoryAnchorId);
     }

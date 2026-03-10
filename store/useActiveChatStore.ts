@@ -5,7 +5,7 @@ import * as dbService from '../services/dbService.ts';
 import { METADATA_KEYS } from '../services/dbService.ts';
 import { useChatListStore } from './useChatListStore.ts';
 import { useDataStore } from './useDataStore.ts';
-import { DEFAULT_SETTINGS } from '../constants.ts';
+import { DEFAULT_SETTINGS, DEFAULT_MODEL_ID } from '../constants.ts';
 
 interface ActiveChatState {
   currentChatId: string | null;
@@ -78,6 +78,11 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
     // so this is a robust fallback for metadata, but messages might be missing.
     if (!fullSession) {
         fullSession = chatList.find(s => s.id === id);
+    }
+
+    if (fullSession) {
+        if (!fullSession.settings) fullSession.settings = DEFAULT_SETTINGS;
+        if (!fullSession.model) fullSession.model = DEFAULT_MODEL_ID;
     }
 
     set({ 

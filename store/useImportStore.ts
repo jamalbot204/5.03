@@ -105,7 +105,7 @@ export const useImportStore = create<ImportStoreState>(() => ({
         // --- DELEGATE TO WORKER ---
         const result = await importWorkerService.runImport(file, (percent, msg) => {
             updateProgress(taskId, percent, msg);
-        });
+        }, { defaultSettings: DEFAULT_SETTINGS, defaultModel: DEFAULT_MODEL_ID });
 
         // --- HANDLE FALLBACK OR COMPLETION ---
         if (result && typeof result === 'object' && result.simpleFallback) {
