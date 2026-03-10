@@ -20,19 +20,36 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
   currentChatSession: null,
 
   loadActiveChatId: async () => {
-    // This should be called after chatHistory is loaded
     try {
       const activeChatId = await dbService.getAppMetadata<string | null>(METADATA_KEYS.ACTIVE_CHAT_ID);
-      const { chatHistory, createNewChat } = useChatListStore.getState();
-      if (chatHistory.length > 0) {
-        // We verify existence using the summary list (fast)
-        const validActiveChatId = activeChatId && chatHistory.find(s => s.id === activeChatId) ? activeChatId : chatHistory[0].id;
-        // selectChat handles the full data fetch
-        await get().selectChat(validActiveChatId);
-      } else {
-        // Automatically create a new chat if no history exists to prevent empty state confusion
+      const { chatHistory, createNewChat, injectChatSummary } = useChatListStore.getState();
+      
+      if (chatHistory.length === 0) {
         await createNewChat();
+        return;
       }
+
+      let validActiveChatId: string | null = null;
+
+      if (activeChatId) {
+        const existsInList = chatHistory.find(s => s.id === activeChatId);
+        if (existsInList) {
+          validActiveChatId = activeChatId;
+        } else {
+          // Orphaned active chat (exists in DB but not in the first page of summaries)
+          const session = await dbService.getChatSession(activeChatId);
+          if (session) {
+            injectChatSummary(session);
+            validActiveChatId = activeChatId;
+          }
+        }
+      }
+
+      if (!validActiveChatId) {
+        validActiveChatId = chatHistory[0].id;
+      }
+
+      await get().selectChat(validActiveChatId);
     } catch (error) {
         console.error("Failed to load active chat ID from IndexedDB:", error);
         set({ currentChatId: null, currentChatSession: null });

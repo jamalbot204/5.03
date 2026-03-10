@@ -42,7 +42,7 @@ const ToggleOption: React.FC<{
 ));
 
 const ExportConfigurationModal: React.FC = memo(() => {
-  const { chatHistory } = useChatListStore();
+  const { chatHistory, loadAllChatsForModals } = useChatListStore();
   const { currentExportConfig, setCurrentExportConfig, handleExportChats, handleExportTrainingData, isExporting, exportProgress } = useExportStore();
   const { isExportConfigModalOpen, closeExportConfigurationModal } = useSettingsUI();
   const showToast = useToastStore(state => state.showToast);
@@ -52,25 +52,35 @@ const ExportConfigurationModal: React.FC = memo(() => {
   const [selectedChatIds, setSelectedChatIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [areButtonsDisabled, setAreButtonsDisabled] = useState(true);
+  const [isPreparingData, setIsPreparingData] = useState(false);
 
   useEffect(() => {
     if (isExportConfigModalOpen) {
+      const initData = async () => {
+        setIsPreparingData(true);
+        await loadAllChatsForModals();
+        setIsPreparingData(false);
+        
+        // After loading, initialize selection
+        const history = useChatListStore.getState().chatHistory;
+        setSelectedChatIds(
+          history.length > 0 
+            ? history.filter(s => s.title !== 'New Chat').map(s => s.id) 
+            : []
+        );
+      };
+
       setAreButtonsDisabled(true);
       const timerId = setTimeout(() => {
         setAreButtonsDisabled(false);
       }, 500);
 
       setLocalConfig(currentExportConfig);
-      // Filter out empty "New Chat" sessions by default
-      setSelectedChatIds(
-        chatHistory.length > 0 
-          ? chatHistory.filter(s => s.title !== 'New Chat').map(s => s.id) 
-          : []
-      );
+      initData();
       setSearchTerm('');
       return () => clearTimeout(timerId);
     }
-  }, [isExportConfigModalOpen, currentExportConfig, chatHistory]);
+  }, [isExportConfigModalOpen, currentExportConfig, loadAllChatsForModals]);
 
   const filteredSessions = useMemo(() => {
     if (!searchTerm.trim()) return chatHistory;
@@ -164,7 +174,12 @@ const ExportConfigurationModal: React.FC = memo(() => {
                 </div>
             </div>
             
-            {chatHistory.length > 0 ? (
+            {isPreparingData ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                <ArrowPathIcon className="w-8 h-8 text-amber-500 animate-spin" />
+                <p className="text-sm text-amber-400 font-medium animate-pulse">Loading full history...</p>
+              </div>
+            ) : chatHistory.length > 0 ? (
               <>
                 <input
                   type="text"
@@ -264,9 +279,9 @@ const ExportConfigurationModal: React.FC = memo(() => {
              <button onClick={handleInitiateTrainingExport} disabled={areButtonsDisabled || selectedChatIds.length === 0} type="button" className="px-3 py-2 text-xs font-medium text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-md transition-all hover:text-purple-200 hover:bg-purple-500/20 flex items-center sm:w-auto w-full justify-center disabled:opacity-60"><BrainIcon className="w-3.5 h-3.5 ltr:mr-1.5 rtl:ml-1.5" /> {t.exportTrainingData}</button>
           </div>
           <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 sm:rtl:space-x-reverse w-full sm:w-auto">
-            <button onClick={closeExportConfigurationModal} disabled={areButtonsDisabled} type="button" className="px-4 py-2.5 text-sm font-medium text-gray-300 bg-white/5 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(255,255,255,0.2)] w-full sm:w-auto disabled:opacity-60">{t.cancel}</button>
-            <button onClick={handleSaveCurrentConfig} disabled={areButtonsDisabled} type="button" className="px-4 py-2.5 text-sm font-medium text-white bg-green-600/80 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(34,197,94,0.6)] flex items-center justify-center w-full sm:w-auto disabled:opacity-60"><CheckIcon className="w-4 h-4 ltr:mr-1.5 rtl:ml-1.5" /> {t.save}</button>
-            <button onClick={handleInitiateExport} type="button" disabled={areButtonsDisabled || selectedChatIds.length === 0 || isExporting} className="px-4 py-2.5 text-sm font-medium text-white bg-amber-600/90 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(245,158,11,0.6)] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"><ExportBoxIcon className="w-4 h-4 ltr:mr-1.5 rtl:ml-1.5" /> {exportButtonText}</button>
+            <button onClick={closeExportConfigurationModal} disabled={areButtonsDisabled || isPreparingData} type="button" className="px-4 py-2.5 text-sm font-medium text-gray-300 bg-white/5 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(255,255,255,0.2)] w-full sm:w-auto disabled:opacity-60">{t.cancel}</button>
+            <button onClick={handleSaveCurrentConfig} disabled={areButtonsDisabled || isPreparingData} type="button" className="px-4 py-2.5 text-sm font-medium text-white bg-green-600/80 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(34,197,94,0.6)] flex items-center justify-center w-full sm:w-auto disabled:opacity-60"><CheckIcon className="w-4 h-4 ltr:mr-1.5 rtl:ml-1.5" /> {t.save}</button>
+            <button onClick={handleInitiateExport} type="button" disabled={areButtonsDisabled || selectedChatIds.length === 0 || isExporting || isPreparingData} className="px-4 py-2.5 text-sm font-medium text-white bg-amber-600/90 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(245,158,11,0.6)] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"><ExportBoxIcon className="w-4 h-4 ltr:mr-1.5 rtl:ml-1.5" /> {exportButtonText}</button>
           </div>
         </div>
       </div>

@@ -5,13 +5,13 @@ import { useChatListStore } from '../../store/useChatListStore.ts';
 import { useActiveChatStore } from '../../store/useActiveChatStore.ts';
 import { useSelectionStore } from '../../store/useSelectionStore.ts';
 import { useInteractionStore } from '../../store/useInteractionStore.ts';
-import { ArrowRightStartOnRectangleIcon, CloseIcon, UsersIcon } from '../common/Icons.tsx';
+import { ArrowRightStartOnRectangleIcon, CloseIcon, UsersIcon, ArrowPathIcon } from '../common/Icons.tsx';
 import BaseModal from '../common/BaseModal.tsx';
 import { useTranslation } from '../../hooks/useTranslation.ts';
 
 const MoveMessagesModal: React.FC = memo(() => {
     const { isMoveMessagesModalOpen, closeMoveMessagesModal } = useSettingsUI();
-    const { chatHistory } = useChatListStore();
+    const { chatHistory, loadAllChatsForModals } = useChatListStore();
     const { currentChatId } = useActiveChatStore();
     const { selectedMessageIds } = useSelectionStore();
     const { handleMoveMessagesToChat } = useInteractionStore();
@@ -20,14 +20,22 @@ const MoveMessagesModal: React.FC = memo(() => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
     const [isMoving, setIsMoving] = useState(false);
+    const [isPreparingData, setIsPreparingData] = useState(false);
 
     useEffect(() => {
         if (isMoveMessagesModalOpen) {
+            const initData = async () => {
+                setIsPreparingData(true);
+                await loadAllChatsForModals();
+                setIsPreparingData(false);
+            };
+
             setSearchTerm('');
             setSelectedTargetId(null);
             setIsMoving(false);
+            initData();
         }
-    }, [isMoveMessagesModalOpen]);
+    }, [isMoveMessagesModalOpen, loadAllChatsForModals]);
 
     const eligibleChats = useMemo(() => {
         return chatHistory.filter(chat => chat.id !== currentChatId);
@@ -51,14 +59,14 @@ const MoveMessagesModal: React.FC = memo(() => {
         <>
             <button 
                 onClick={closeMoveMessagesModal} 
-                disabled={isMoving}
+                disabled={isMoving || isPreparingData}
                 className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 rounded hover:bg-white/10 disabled:opacity-60"
             >
                 {t.cancel}
             </button>
             <button 
                 onClick={handleConfirm}
-                disabled={!selectedTargetId || isMoving}
+                disabled={!selectedTargetId || isMoving || isPreparingData}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600/80 rounded hover:bg-blue-500 hover:shadow-lg disabled:opacity-50 flex items-center"
             >
                 {isMoving ? (
@@ -98,7 +106,12 @@ const MoveMessagesModal: React.FC = memo(() => {
                 />
 
                 <div className="max-h-60 overflow-y-auto border border-[var(--aurora-border)] rounded-md bg-black/20 p-1 custom-scrollbar">
-                    {filteredChats.length === 0 ? (
+                    {isPreparingData ? (
+                        <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                            <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin" />
+                            <p className="text-sm text-blue-400 font-medium animate-pulse">Loading full history...</p>
+                        </div>
+                    ) : filteredChats.length === 0 ? (
                         <p className="text-center text-gray-500 py-6 italic text-sm">No other chats found.</p>
                     ) : (
                         <div className="space-y-1">

@@ -36,7 +36,7 @@ export async function getAllChatSessions(): Promise<ChatSession[]> {
     });
 }
 
-export async function getAllChatSummaries(): Promise<ChatSession[]> {
+export async function getAllChatSummariesFull(): Promise<ChatSession[]> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
          if (!db.objectStoreNames.contains(CHAT_SESSIONS_STORE)) {
@@ -60,6 +60,42 @@ export async function getAllChatSummaries(): Promise<ChatSession[]> {
                 cursor.continue();
             } else {
                 resolve(summaries.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime()));
+            }
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function getChatSummariesPage(limit: number, cursorTimestampMs?: number): Promise<ChatSession[]> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        if (!db.objectStoreNames.contains(CHAT_SESSIONS_STORE)) {
+            return resolve([]);
+        }
+        const transaction = db.transaction(CHAT_SESSIONS_STORE, 'readonly');
+        const store = transaction.objectStore(CHAT_SESSIONS_STORE);
+        const index = store.index('lastUpdatedAt');
+        
+        let range: IDBKeyRange | undefined = undefined;
+        if (cursorTimestampMs) {
+            range = IDBKeyRange.upperBound(new Date(cursorTimestampMs), true);
+        }
+        
+        const request = index.openCursor(range, 'prev');
+        const summaries: ChatSession[] = [];
+        
+        request.onsuccess = (event) => {
+            const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+            if (cursor && summaries.length < limit) {
+                const session = cursor.value as ChatSession;
+                const summary: ChatSession = {
+                    ...session,
+                    messages: []
+                };
+                summaries.push(summary);
+                cursor.continue();
+            } else {
+                resolve(summaries);
             }
         };
         request.onerror = () => reject(request.error);

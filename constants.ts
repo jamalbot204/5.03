@@ -2,7 +2,7 @@
 import { GeminiSettings, SafetySetting, HarmCategory, HarmBlockThreshold, TTSSettings, TTSModelId, TTSVoiceId, ExportConfiguration } from './types.ts';
 
 export const APP_TITLE = "JJ CHAT"; // Matches screenshot
-export const APP_VERSION = "4.40";
+export const APP_VERSION = "5.03";
 
 // Updated MODEL_DEFINITIONS to include newer models from AI Studio screenshots
 // while staying within the Gemini family focus.

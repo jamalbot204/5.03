@@ -2,22 +2,29 @@ import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useSettingsUI } from '../../store/ui/useSettingsUI.ts';
 import { useChatListStore } from '../../store/useChatListStore.ts';
 import { useExportStore } from '../../store/useExportStore.ts';
-import { CloseIcon, CheckIcon, DocumentIcon, UsersIcon } from '../common/Icons.tsx';
+import { CloseIcon, CheckIcon, DocumentIcon, UsersIcon, ArrowPathIcon } from '../common/Icons.tsx';
 import { useTranslation } from '../../hooks/useTranslation.ts';
 import BaseModal from '../common/BaseModal.tsx';
 
 const TextExportModal: React.FC = memo(() => {
   const { isTextExportModalOpen, closeTextExportModal } = useSettingsUI();
-  const { chatHistory } = useChatListStore();
+  const { chatHistory, loadAllChatsForModals } = useChatListStore();
   const { handleBatchExportChatsToTxt } = useExportStore();
   const { t } = useTranslation();
 
   const [selectedChatIds, setSelectedChatIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [areButtonsDisabled, setAreButtonsDisabled] = useState(true);
+  const [isPreparingData, setIsPreparingData] = useState(false);
 
   useEffect(() => {
     if (isTextExportModalOpen) {
+      const initData = async () => {
+        setIsPreparingData(true);
+        await loadAllChatsForModals();
+        setIsPreparingData(false);
+      };
+
       setAreButtonsDisabled(true);
       const timerId = setTimeout(() => {
         setAreButtonsDisabled(false);
@@ -25,9 +32,10 @@ const TextExportModal: React.FC = memo(() => {
 
       setSelectedChatIds([]);
       setSearchTerm('');
+      initData();
       return () => clearTimeout(timerId);
     }
-  }, [isTextExportModalOpen]);
+  }, [isTextExportModalOpen, loadAllChatsForModals]);
 
   const filteredSessions = useMemo(() => {
     if (!searchTerm.trim()) return chatHistory;
@@ -60,14 +68,14 @@ const TextExportModal: React.FC = memo(() => {
     <>
         <button
             onClick={closeTextExportModal}
-            disabled={areButtonsDisabled}
+            disabled={areButtonsDisabled || isPreparingData}
             className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(255,255,255,0.2)] disabled:opacity-60"
         >
             {t.cancel}
         </button>
         <button
             onClick={handleExport}
-            disabled={areButtonsDisabled || selectedChatIds.length === 0}
+            disabled={areButtonsDisabled || selectedChatIds.length === 0 || isPreparingData}
             className="px-4 py-2 text-sm font-medium text-white bg-[var(--aurora-accent-primary)] rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(90,98,245,0.6)] disabled:opacity-60 flex items-center"
         >
             <CheckIcon className="w-4 h-4 mr-1.5" />
@@ -106,7 +114,12 @@ const TextExportModal: React.FC = memo(() => {
                     </div>
                 </div>
                 
-                {chatHistory.length > 0 ? (
+                {isPreparingData ? (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                        <ArrowPathIcon className="w-8 h-8 text-amber-500 animate-spin" />
+                        <p className="text-sm text-amber-400 font-medium animate-pulse">Loading full history...</p>
+                    </div>
+                ) : chatHistory.length > 0 ? (
                 <>
                     <input
                     type="text"

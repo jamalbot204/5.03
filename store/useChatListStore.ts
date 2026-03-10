@@ -12,7 +12,13 @@ import { useHistorySelectionStore } from './useHistorySelectionStore.ts';
 interface ChatListState {
   chatHistory: ChatSession[];
   isLoadingData: boolean;
+  hasMoreChats: boolean;
+  isFetchingMore: boolean;
+  isFullHistoryLoaded: boolean;
   loadChatHistory: () => Promise<void>;
+  loadMoreChats: () => Promise<void>;
+  loadAllChatsForModals: () => Promise<void>;
+  injectChatSummary: (session: ChatSession) => void;
   addChatSession: (session: ChatSession) => Promise<void>;
   deleteChat: (sessionId: string) => Promise<void>;
   deleteMultipleChats: (sessionIds: string[]) => Promise<void>;
@@ -24,16 +30,72 @@ interface ChatListState {
 export const useChatListStore = create<ChatListState>((set, get) => ({
   chatHistory: [],
   isLoadingData: true,
+  hasMoreChats: false,
+  isFetchingMore: false,
+  isFullHistoryLoaded: false,
 
   loadChatHistory: async () => {
     set({ isLoadingData: true });
     try {
-      // Changed to use summaries to avoid loading full message content into the list
-      const sessions = await dbService.getAllChatSummaries();
-      set({ chatHistory: sessions, isLoadingData: false });
+      // Changed to use pagination to avoid loading full history at once
+      const sessions = await dbService.getChatSummariesPage(20);
+      set({ 
+        chatHistory: sessions, 
+        isLoadingData: false, 
+        hasMoreChats: sessions.length === 20,
+        isFullHistoryLoaded: false
+      });
     } catch (error) {
       console.error("Failed to load chat history:", error);
-      set({ chatHistory: [], isLoadingData: false });
+      set({ chatHistory: [], isLoadingData: false, hasMoreChats: false });
+    }
+  },
+
+  loadMoreChats: async () => {
+    const { isFetchingMore, hasMoreChats, chatHistory } = get();
+    if (isFetchingMore || !hasMoreChats) return;
+
+    set({ isFetchingMore: true });
+    try {
+      const lastItem = chatHistory[chatHistory.length - 1];
+      const timestampMs = new Date(lastItem.lastUpdatedAt).getTime();
+      
+      const newSessions = await dbService.getChatSummariesPage(20, timestampMs);
+      
+      // Filter out duplicates (e.g. if a chat was injected)
+      const existingIds = new Set(chatHistory.map(c => c.id));
+      const filteredNewSessions = newSessions.filter(s => !existingIds.has(s.id));
+      
+      set({
+        chatHistory: [...chatHistory, ...filteredNewSessions],
+        hasMoreChats: newSessions.length === 20,
+        isFetchingMore: false
+      });
+    } catch (error) {
+      console.error("Failed to load more chats:", error);
+      set({ isFetchingMore: false });
+    }
+  },
+
+  loadAllChatsForModals: async () => {
+    if (get().isFullHistoryLoaded) return;
+    try {
+      const sessions = await dbService.getAllChatSummariesFull();
+      set({ 
+        chatHistory: sessions, 
+        isFullHistoryLoaded: true, 
+        hasMoreChats: false 
+      });
+    } catch (error) {
+      console.error("Failed to load all chats for modals:", error);
+    }
+  },
+
+  injectChatSummary: (session: ChatSession) => {
+    const summary = { ...session, messages: [] };
+    const { chatHistory } = get();
+    if (!chatHistory.find(s => s.id === session.id)) {
+      set({ chatHistory: [summary, ...chatHistory] });
     }
   },
 

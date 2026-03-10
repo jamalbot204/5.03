@@ -3,13 +3,13 @@ import { useSettingsUI } from '../../store/ui/useSettingsUI.ts';
 import { useChatListStore } from '../../store/useChatListStore.ts';
 import { useActiveChatStore } from '../../store/useActiveChatStore.ts';
 import { useDataStore } from '../../store/useDataStore.ts';
-import { CloseIcon, CheckIcon, ClipboardDocumentListIcon, UsersIcon, CogIcon, InfoIcon, FlowRightIcon, UserIcon } from '../common/Icons.tsx';
+import { CloseIcon, CheckIcon, ClipboardDocumentListIcon, UsersIcon, CogIcon, InfoIcon, FlowRightIcon, UserIcon, ArrowPathIcon } from '../common/Icons.tsx';
 import { useTranslation } from '../../hooks/useTranslation.ts';
 import { MEMORY_STRATEGIES } from '../../constants.ts';
 
 const MemorySourceSelectionModal: React.FC = memo(() => {
   const { isMemorySourceModalOpen, closeMemorySourceModal, openCustomStrategyModal } = useSettingsUI(); 
-  const { chatHistory } = useChatListStore();
+  const { chatHistory, loadAllChatsForModals } = useChatListStore();
   const { currentChatSession, updateCurrentChatSession } = useActiveChatStore();
   const { updateSettings, customMemoryStrategies, updateChatPartnerRole } = useDataStore();
   const { t } = useTranslation();
@@ -17,6 +17,7 @@ const MemorySourceSelectionModal: React.FC = memo(() => {
   const [selectedChatIds, setSelectedChatIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [areButtonsDisabled, setAreButtonsDisabled] = useState(true);
+  const [isPreparingData, setIsPreparingData] = useState(false);
   
   // Advanced Settings State
   const [maxResults, setMaxResults] = useState<number>(15);
@@ -29,34 +30,44 @@ const MemorySourceSelectionModal: React.FC = memo(() => {
 
   useEffect(() => {
     if (isMemorySourceModalOpen && currentChatSession) {
+        const initData = async () => {
+            setIsPreparingData(true);
+            await loadAllChatsForModals();
+            setIsPreparingData(false);
+            
+            // After loading, initialize selection and roles
+            const history = useChatListStore.getState().chatHistory;
+            const currentSettings = currentChatSession.settings;
+            if (currentSettings.memorySourceChatIds === undefined) {
+                setSelectedChatIds(history.map(chat => chat.id));
+            } else {
+                setSelectedChatIds(currentSettings.memorySourceChatIds);
+            }
+
+            const roleMap: Record<string, string> = {};
+            history.forEach(c => {
+                roleMap[c.id] = c.partnerRole || '';
+            });
+            setPartnerRoles(roleMap);
+        };
+
         setAreButtonsDisabled(true);
         const timerId = setTimeout(() => {
             setAreButtonsDisabled(false);
         }, 500);
 
         const currentSettings = currentChatSession.settings;
-        if (currentSettings.memorySourceChatIds === undefined) {
-            setSelectedChatIds(chatHistory.map(chat => chat.id));
-        } else {
-            setSelectedChatIds(currentSettings.memorySourceChatIds);
-        }
-        
         setMaxResults(currentSettings.memoryMaxResults ?? 15);
         setMinRelevance(currentSettings.memoryMinRelevance ?? 0.35);
         setSelectedStrategy(currentSettings.memoryQueryStrategy || 'companion');
 
-        // Initialize local role state
-        const roleMap: Record<string, string> = {};
-        chatHistory.forEach(c => {
-            roleMap[c.id] = c.partnerRole || '';
-        });
-        setPartnerRoles(roleMap);
+        initData();
 
         setSearchTerm('');
         setShowAdvancedHelp(null);
         return () => clearTimeout(timerId);
     }
-  }, [isMemorySourceModalOpen, currentChatSession, chatHistory]);
+  }, [isMemorySourceModalOpen, currentChatSession, loadAllChatsForModals]);
 
   const filteredChats = useMemo(() => {
     if (!searchTerm.trim()) return chatHistory;
@@ -201,7 +212,12 @@ const MemorySourceSelectionModal: React.FC = memo(() => {
 
         {/* Chat List */}
         <div className="flex-grow min-h-0 overflow-y-auto border border-[var(--aurora-border)] rounded-md bg-black/20 p-1 custom-scrollbar mb-4">
-            {filteredChats.length === 0 ? (
+            {isPreparingData ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                    <ArrowPathIcon className="w-8 h-8 text-purple-500 animate-spin" />
+                    <p className="text-sm text-purple-400 font-medium animate-pulse">Loading full history...</p>
+                </div>
+            ) : filteredChats.length === 0 ? (
                 <p className="text-center text-gray-500 py-8 italic">{t.noChatsFound}</p>
             ) : (
                 <div className="space-y-1">
@@ -349,14 +365,14 @@ const MemorySourceSelectionModal: React.FC = memo(() => {
             <div className="flex gap-3">
                 <button 
                     onClick={closeMemorySourceModal}
-                    disabled={areButtonsDisabled}
+                    disabled={areButtonsDisabled || isPreparingData}
                     className="px-4 py-2 text-sm font-medium text-gray-300 bg-white/5 rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(255,255,255,0.2)] disabled:opacity-60"
                 >
                     {t.cancel}
                 </button>
                 <button 
                     onClick={handleSave}
-                    disabled={areButtonsDisabled}
+                    disabled={areButtonsDisabled || isPreparingData}
                     className="px-4 py-2 text-sm font-medium text-white bg-[var(--aurora-accent-primary)] rounded-md transition-shadow hover:shadow-[0_0_12px_2px_rgba(90,98,245,0.6)] disabled:opacity-60"
                 >
                     {t.save}

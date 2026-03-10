@@ -168,19 +168,19 @@ const ReadModeView: React.FC<ReadModeViewProps> = memo(({
       return messages.filter(m => m.role === 'model' && m.content.trim().length > 0);
   }, [messages]);
 
-  const currentNavIndex = useMemo(() => {
-      if (!messageId) return -1;
-      return navigableMessages.findIndex(m => m.id === messageId);
-  }, [messageId, navigableMessages]);
-
-  const canNavigateNext = currentNavIndex !== -1 && currentNavIndex < navigableMessages.length - 1;
-  const canNavigatePrev = currentNavIndex > 0;
-
   const [internalMessageId, setInternalMessageId] = useState<string | null>(messageId);
 
   useEffect(() => {
       setInternalMessageId(messageId);
   }, [messageId]);
+
+  const currentNavIndex = useMemo(() => {
+      if (!internalMessageId) return -1;
+      return navigableMessages.findIndex(m => m.id === internalMessageId);
+  }, [internalMessageId, navigableMessages]);
+
+  const canNavigateNext = currentNavIndex !== -1 && currentNavIndex < navigableMessages.length - 1;
+  const canNavigatePrev = currentNavIndex > 0;
 
   const handleReadModeNext = useCallback(() => {
       if (canNavigateNext) {

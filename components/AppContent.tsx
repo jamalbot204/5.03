@@ -129,10 +129,6 @@ const AppContent: React.FC = memo(() => {
 
   const isAudioBarVisible = !!(audioId || audioIsLoading || audioIsPlaying || audioText) && !isReadModeOpen;
   
-  if (isLoadingData) {
-    return <div className="flex justify-center items-center h-screen bg-transparent text-white text-lg">{t.loading}</div>;
-  }
-
   return (
     <div className="flex h-screen antialiased text-[var(--aurora-text-primary)] bg-transparent overflow-hidden">
       

@@ -96,7 +96,16 @@ const Sidebar: React.FC = memo(() => {
       isCharacterModeActive: state.currentChatSession?.isCharacterModeActive ?? false,
       showAdvancedDataTools: state.currentChatSession?.settings.showAdvancedDataTools ?? false
   })));
-  const { chatHistory, createNewChat, deleteChat, duplicateChat } = useChatListStore();
+  const { 
+    chatHistory, 
+    createNewChat, 
+    deleteChat, 
+    duplicateChat,
+    isLoadingData,
+    hasMoreChats,
+    isFetchingMore,
+    loadMoreChats
+  } = useChatListStore();
   const { handleEmbedSelectedChats, handleResetEmbedFlags } = useDataStore();
   const { handleImportAll } = useImportStore();
   
@@ -241,32 +250,58 @@ const Sidebar: React.FC = memo(() => {
             </button>
         </div>
         
-        {chatHistory.length === 0 && (
-          <p className="text-sm text-gray-500 italic text-center py-4">{t.noChats}</p>
+        {isLoadingData ? (
+          // Skeleton Loader
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-white/5 h-12 rounded-xl mb-2" />
+          ))
+        ) : (
+          <>
+            {chatHistory.length === 0 && (
+              <p className="text-sm text-gray-500 italic text-center py-4">{t.noChats}</p>
+            )}
+            
+            {chatHistory.map(session => (
+                <SidebarChatItem
+                    key={session.id}
+                    session={{...session, editingValue: editingTitleInfo.id === session.id ? editingTitleInfo.value : session.title}}
+                    isActive={currentChatId === session.id}
+                    isEditing={editingTitleInfo.id === session.id}
+                    isSelected={selectedChatIds.includes(session.id)}
+                    isHistorySelectionModeActive={isHistorySelectionModeActive}
+                    isCharMode={session.isCharacterModeActive}
+                    selectChat={selectChat}
+                    toggleChatSelection={toggleChatSelection}
+                    startEditingTitle={startEditingTitle}
+                    duplicateChat={duplicateChat}
+                    requestDeleteChatConfirmation={requestDeleteChatConfirmation}
+                    saveChatTitle={saveChatTitle}
+                    cancelEditingTitle={cancelEditingTitle}
+                    setEditingTitleValue={setEditingTitleValue}
+                    handleInputKeyDown={handleInputKeyDown}
+                    editInputRef={editInputRef}
+                    t={t}
+                />
+            ))}
+
+            {hasMoreChats && !isHistorySelectionModeActive && (
+              <button
+                onClick={loadMoreChats}
+                disabled={isFetchingMore}
+                className="w-full py-2.5 mt-2 text-xs font-medium text-gray-400 bg-white/5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center disabled:opacity-50"
+              >
+                {isFetchingMore ? (
+                  <>
+                    <ArrowPathIcon className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load More"
+                )}
+              </button>
+            )}
+          </>
         )}
-        
-        {chatHistory.map(session => (
-            <SidebarChatItem
-                key={session.id}
-                session={{...session, editingValue: editingTitleInfo.id === session.id ? editingTitleInfo.value : session.title}}
-                isActive={currentChatId === session.id}
-                isEditing={editingTitleInfo.id === session.id}
-                isSelected={selectedChatIds.includes(session.id)}
-                isHistorySelectionModeActive={isHistorySelectionModeActive}
-                isCharMode={session.isCharacterModeActive}
-                selectChat={selectChat}
-                toggleChatSelection={toggleChatSelection}
-                startEditingTitle={startEditingTitle}
-                duplicateChat={duplicateChat}
-                requestDeleteChatConfirmation={requestDeleteChatConfirmation}
-                saveChatTitle={saveChatTitle}
-                cancelEditingTitle={cancelEditingTitle}
-                setEditingTitleValue={setEditingTitleValue}
-                handleInputKeyDown={handleInputKeyDown}
-                editInputRef={editInputRef}
-                t={t}
-            />
-        ))}
       </div>
 
       <div className="p-4 pt-2 border-t border-[var(--aurora-border)]">
