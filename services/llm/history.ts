@@ -2,6 +2,16 @@
 import { Part } from "@google/genai";
 import { ChatMessage, ChatMessageRole, GeminiSettings, GeminiHistoryEntry, AICharacter } from '../../types.ts';
 
+function sanitizeThoughtsForApi(thoughts?: string): string {
+    if (!thoughts) return "";
+    let clean = thoughts;
+    const traceIndex = clean.indexOf('### 🧠 Enhanced Thinking Trace');
+    if (traceIndex !== -1) clean = clean.substring(0, traceIndex);
+    const fusionIndex = clean.indexOf('### 🧬 Enhanced Thinking');
+    if (fusionIndex !== -1) clean = clean.substring(0, fusionIndex);
+    return clean.trim();
+}
+
 export function mapMessagesToGeminiHistoryInternal(
   messages: ChatMessage[],
   settings?: GeminiSettings
@@ -35,6 +45,13 @@ export function mapMessagesToGeminiHistoryInternal(
         }
     }
     
+    if (msg.role === ChatMessageRole.MODEL && msg.thoughts) {
+        const sanitizedThoughts = sanitizeThoughtsForApi(msg.thoughts);
+        if (sanitizedThoughts) {
+            parts.push({ text: sanitizedThoughts, thought: true } as any);
+        }
+    }
+
     if (baseContent.trim() || msg.isGithubContextMessage) {
       parts.push({ text: baseContent });
     }
@@ -72,10 +89,17 @@ export function mapMessagesToFlippedRoleGeminiHistory(
     settings?: GeminiSettings
 ): GeminiHistoryEntry[] {
     const history = mapMessagesToGeminiHistoryInternal(messages, settings);
-    return history.map(entry => ({
-        role: entry.role === 'user' ? 'model' : 'user',
-        parts: entry.parts
-    }));
+    return history.map(entry => {
+        const filteredParts = entry.parts.filter(part => !(part as any).thought);
+        // Gemini API crashes if parts array is empty. Provide a fallback empty text part if needed.
+        if (filteredParts.length === 0) {
+            filteredParts.push({ text: "" });
+        }
+        return {
+            role: entry.role === 'user' ? 'model' : 'user',
+            parts: filteredParts
+        };
+    });
 }
 
 export function mapMessagesToCharacterPerspectiveHistory(
@@ -94,6 +118,18 @@ export function mapMessagesToCharacterPerspectiveHistory(
 
     msgsToMap.forEach(msg => {
         const parts: Part[] = [];
+        let mappedRole: 'user' | 'model' = 'user';
+        if (msg.role === ChatMessageRole.MODEL && targetChar && msg.characterName === targetChar.name) {
+            mappedRole = 'model';
+        }
+
+        if (mappedRole === 'model' && msg.thoughts) {
+            const sanitizedThoughts = sanitizeThoughtsForApi(msg.thoughts);
+            if (sanitizedThoughts) {
+                parts.push({ text: sanitizedThoughts, thought: true } as any);
+            }
+        }
+
         let content = msg.content;
 
         if (content) {
@@ -126,11 +162,7 @@ export function mapMessagesToCharacterPerspectiveHistory(
         }
 
         if (parts.length > 0) {
-            let role: 'user' | 'model' = 'user';
-            if (msg.role === ChatMessageRole.MODEL && targetChar && msg.characterName === targetChar.name) {
-                role = 'model';
-            }
-            history.push({ role, parts });
+            history.push({ role: mappedRole, parts });
         }
     });
 

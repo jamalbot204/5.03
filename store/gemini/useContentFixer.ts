@@ -67,7 +67,9 @@ export const useContentFixer = create<ContentFixerActions>((set, get) => ({
                 content: newContent, 
                 attachments: combinedAttachments, 
                 cachedAudioBuffers: null,
-                cachedAudioSegmentCount: undefined // Clear metadata since audio files are deleted
+                cachedAudioSegmentCount: undefined, // Clear metadata since audio files are deleted
+                thoughts: undefined,
+                enhancedDrafts: undefined
             };
             const historyBeforeEdit = currentChatSession.messages.slice(0, messageIndex);
             
@@ -120,7 +122,9 @@ export const useContentFixer = create<ContentFixerActions>((set, get) => ({
                 role: ChatMessageRole.MODEL, 
                 cachedAudioBuffers: null, 
                 cachedAudioSegmentCount: undefined, // Clear metadata
-                groundingMetadata: undefined 
+                groundingMetadata: undefined,
+                thoughts: undefined,
+                enhancedDrafts: undefined
             };
         
             await updateCurrentChatSession(session => session ? ({ ...session, messages: session.messages.map(msg => msg.id === messageId ? placeholderAiMessage : msg) }) : null);
@@ -222,7 +226,7 @@ export const useContentFixer = create<ContentFixerActions>((set, get) => ({
             await updateCurrentChatSession(session => {
                 if (!session) return null;
                 const newMessages = session.messages.map(msg => 
-                    msg.id === messageId ? { ...msg, content: newContent, attachments: combinedAttachments } : msg
+                    msg.id === messageId ? { ...msg, content: newContent, attachments: combinedAttachments, thoughts: undefined, enhancedDrafts: undefined } : msg
                 );
                 return { ...session, messages: newMessages };
             });
